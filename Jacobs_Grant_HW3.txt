@@ -1,0 +1,124 @@
+-- Grant Jacobs HW3
+
+-- Problems:
+--1
+SELECT first_name, last_name, email, primary_dept
+FROM teacher
+ORDER BY last_name ASC;
+
+--2
+SELECT first_name || ' ' || last_name AS student_full_name
+FROM student
+WHERE SUBSTR(first_name,1,1) IN ('O','W','Z')
+ORDER BY last_name DESC;
+
+--3
+SELECT UTEID, date_of_birth, primary_college_code, CGPA
+FROM student
+WHERE (CGPA > 3.0) and
+        ('01-JAN-00' <= date_of_birth) and 
+        ('31-DEC-04' >= date_of_birth) and
+        primary_college_code = 'B'
+ORDER BY date_of_birth DESC;
+
+--4 Part A
+SELECT UTEID, date_of_birth, primary_college_code, CGPA
+FROM student
+WHERE (CGPA > 3.0) and
+        (date_of_birth BETWEEN'01-JAN-00'and '31-DEC-04') and
+        (primary_college_code = 'B')
+ORDER BY date_of_birth DESC;
+
+-- 4 Part B
+SELECT UTEID, date_of_birth, primary_college_code, CGPA
+FROM student
+WHERE (CGPA > 3.0) and
+        ('01-JAN-00' <= date_of_birth) and 
+        ('31-DEC-04' >= date_of_birth) --and
+        --(primary_college_code = 'B')
+    MINUS
+SELECT UTEID, date_of_birth, primary_college_code, CGPA
+FROM student
+WHERE (CGPA > 3.0) and
+        (date_of_birth BETWEEN'01-JAN-00'and '31-DEC-04') and
+        (primary_college_code = 'B')
+ORDER BY date_of_birth DESC;
+--Rows Generated without the primary college code condition: 26
+
+--5
+SELECT course_id, unique_number, semester_code, section_day, length_minutes / 60 AS hours
+FROM section
+WHERE section_day IN ('M', 'W', 'MW') and ROWNUM <= 5
+ORDER BY hours DESC;
+
+--6
+SELECT UTEID, last_name, classification, date_of_birth,phone,
+ROUND(((SYSDATE - date_of_birth) / 365), 0) AS age_today 
+FROM student
+WHERE classification IN ('3','4') and
+ROUND(((SYSDATE - date_of_birth) / 365), 0) > 21
+ORDER BY age_today DESC;
+
+--7
+SELECT DISTINCT semester_code, section_day, section_hour
+FROM section
+ORDER BY 2,3;
+
+--8
+SELECT 
+    SYSDATE AS today_unformatted, 
+    TO_CHAR(SYSDATE, 'MM/DD/YYYY') AS today_formatted,
+    'Bright Future University' AS Name_Of_University,
+    10000 AS Total_Students,
+    255 AS Total_Faculty,
+    FLOOR(10000/255) AS Students_Per_Faculty_R1,
+    CEIL(10000/255) AS Students_Per_Faculty_R2
+FROM dual;
+
+--9
+SELECT *
+FROM room
+WHERE floor = 2
+ORDER BY max_seats DESC
+FETCH first 4 rows only;
+
+--10
+SELECT student.UTEID, first_name, last_name, email, classification, state_region, city, CGPA
+FROM student 
+    INNER JOIN student_address_linking
+        ON student.UTEID = student_address_linking.UTEID
+    INNER JOIN address
+        ON student_address_linking.address_id = address.address_id
+WHERE address_type_code = 'H' and state_region = 'TX'
+ORDER BY state_region, city ASC, CGPA DESC;
+
+--11
+SELECT c.course_id ||' - '||c.course_code ||' - '|| c.course_name ||' (TIME: '|| s.section_hour ||') - Prof. '|| t.last_name AS course_information
+FROM teacher t
+    INNER JOIN section s ON t.UTEID = s.instructor_UTEID
+    INNER JOIN course c ON c.course_id = c.course_id
+ORDER BY s.section_id, s.section_hour, last_name ASC;
+
+--12
+SELECT s.UTEID, first_name, last_name, email, ml.major_id, ml.date_declared
+FROM student s
+    LEFT JOIN major_student_linking ml ON ml.UTEID = s.UTEID
+WHERE ml.date_declared is NULL;
+
+--13
+SELECT '1st Class Honor' as honor_level, first_name, last_name, email
+    FROM student
+    WHERE CGPA >= 3.9
+UNION
+SELECT '2nd Class Honor' as honor_level, first_name, last_name, email
+    FROM student
+    WHERE CGPA >= 3.7 and CGPA < 3.9
+UNION
+SELECT '3rd Class Honor' as honor_level, first_name, last_name, email
+    FROM student
+    WHERE CGPA >= 3.5 and CGPA < 3.7
+UNION
+SELECT 'On track to graduate' as honor_level, first_name, last_name, email
+    FROM student
+    WHERE CGPA >= 2.0 and CGPA < 3.5
+ORDER BY 1, 3;

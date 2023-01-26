@@ -1,0 +1,305 @@
+-- Grant Jacobs MIS325 HW2
+
+-- Section 1: Drop Tables and Sequences
+
+-- drop all tables in reverse order of creation
+drop table enrollment;
+drop table student_majors_linkage;
+drop table student_address_linkage;
+drop table majors;
+drop table addresses;
+drop table sections;
+drop table courses;
+drop table rooms;
+drop table teachers;
+drop table students;
+
+drop sequence address_id_seq;
+drop sequence courses_id_seq;
+drop sequence room_id_seq;
+drop sequence section_id_seq;
+
+-- Section 2: Create Tables and Sequences
+
+create sequence address_id_seq
+    start with 1
+    increment by 1;
+
+create sequence courses_id_seq
+    start with 1
+    increment by 1;
+
+create sequence room_id_seq
+    start with 1
+    increment by 1;
+
+create sequence section_id_seq
+    start with 1
+    increment by 1;
+
+
+create table students -- creates a table to store student information
+(
+    uteid                   varchar(20)     primary key,
+    firstName               varchar(20)     not null,
+    lastName                varchar(30)     not null,
+    middleName              varchar (20),
+    date_of_birth           date            not null,
+    classification_code     varchar(3)      not null
+                            check(classification_code = '1' OR classification_code = '2' OR classification_code = '3' OR classification_code = '4' 
+                                                            OR classification_code = 'G' OR classification_code = 'P' OR classification_code = 'C'),
+    student_email           varchar(40)     not null    unique,
+    phone_number            char(12)        not null,
+    primary_college_code    varchar(1)      not null,
+    international_flag      varchar(1)      not null    check (international_flag = 'Y' OR international_flag = 'N'),
+    c_grade_point_average   number,
+    constraint email_length_check                       check (LENGTHB(student_email) >= 7)
+);
+    
+create table teachers
+(
+    teacher_id              varchar(20) primary key,
+    firstName               varchar(20) not null,
+    lastName                varchar(30) not null,
+    teacher_email           varchar(40) not null    unique,
+    primary_department_code varchar(4)  not null, -- changed to 4 to allow 'IROM'
+    primary_teaching_title  varchar(25) not null,
+    phone_number            char(12)    not null,
+    office_location         varchar(20) not null,
+    office_address_1        varchar(50) not null,
+    office_address_2        varchar(30),
+    office_city             varchar(20) not null,
+    office_state            char(2)     not null,
+    office_zip_code         varchar(5)  not null,
+    campus_mail_code        varchar(5)  not null
+);
+
+
+create table rooms --creates room table
+(
+    room_id         number      default room_id_seq.NEXTVAL primary key,
+    room_number     varchar(30) not null,
+    seat_capacity   number      not null,
+    building_code   varchar(3),
+    floor           varchar(10)
+); 
+
+create table courses --creates courses table
+(
+    course_id                   number       default courses_id_seq.NEXTVAL primary key,
+    course_code                 varchar(10)  not null,
+    course_name                 varchar(100)  not null,
+    course_description          varchar(300) not null
+);
+
+create table sections --creates sections table
+(
+    section_id          number          default section_id_seq.NEXTVAL primary key,
+    teacher_id          varchar(20)                 references teachers (teacher_id),
+    course_id           number          not null    references courses (course_id),
+    room_id             number                      references rooms (room_id),
+    unique_number       varchar(20)     not null,
+    semester_code       varchar(4)      not null,
+    section_days        varchar(20), 
+    starting_hours      varchar(20),
+    length_minutes      varchar(20),
+    section_mode        varchar(1)      not null,
+    seat_limit          number          not null,
+    section_status      varchar(1)      default 'O' check(section_status = 'O' OR section_status = 'W' OR section_status = 'C' OR section_status = 'X'),
+    constraint semester_unique_comp unique(unique_number, semester_code)
+);
+
+create table addresses --creates address table
+(
+    address_id              number      default address_id_seq.NEXTVAL primary key,
+    address_line_1          varchar(40) not null,
+    address_line_2          varchar(40),
+    city                    varchar(20) not null,
+    state                   char(2)     not null,
+    zip_code                varchar(5)  not null
+);
+    
+create table majors --creates majros table
+(
+    major_id            number      primary key,
+    major_code          varchar(3)  unique,
+    major_description   varchar(100)
+);
+
+create table student_address_linkage
+(
+    address_id      number,
+    uteid           varchar(20),
+    address_type    varchar(1)              not null    check(address_type = 'H' OR address_type = 'L' OR address_type = 'O'),
+    constraint student_address_linking_pks  primary key (address_id, uteid, address_type),
+    constraint address_linking_fk           foreign key (address_id) references addresses (address_id),
+    constraint student_linking_fk           foreign key (uteid) references students (uteid)
+);
+
+create table student_majors_linkage
+(
+    major_id        number,
+    uteid           varchar(20),
+    date_declared   date                    default SYSDATE         not null,
+    constraint student_majors_linking_pks   primary key (major_id, uteid),
+    constraint major_linking_fk             foreign key (major_id) references majors (major_id),
+    constraint student_major_linking_fk     foreign key (uteid) references students (uteid)
+);
+
+create table enrollment
+(
+    uteid       varchar(20),
+    section_id  number,
+    grade_code  varchar(2)                  check(grade_code = 'A' OR grade_code = 'A-' OR grade_code = 'B+' OR grade_code = 'B' 
+                                            OR grade_code = 'B-' OR grade_code = 'C+' OR grade_code = 'C' OR grade_code = 'C-' 
+                                            OR grade_code = 'D+' OR grade_code = 'D'OR grade_code = 'D-' OR grade_code = 'F' 
+                                            OR grade_code = 'P' OR grade_code = 'W' OR grade_code = 'Q' OR grade_code = 'X'),
+    constraint student_section_linking_pk   primary key (uteid, section_id),
+    constraint uteid_linking_fk             foreign key (uteid)       references students (uteid),
+    constraint section_id_linking_fk        foreign key (section_id)  references sections (section_id)
+);
+
+--Section 3: Insert Data
+
+--Create 2 students
+INSERT INTO students (uteid, firstName, lastName, middleName, date_of_birth, classification_code, student_email, phone_number, primary_college_code, international_flag,c_grade_point_average)
+    VALUES ('grj424','Grant', 'Jacobs', 'R', '10-DEC-2001', '3', 'grj424@utexas.edu', '214-620-1589','B', 'N', '4.0');
+    
+INSERT INTO students (uteid, firstName, lastName, middleName, date_of_birth, classification_code, student_email, phone_number, primary_college_code, international_flag,c_grade_point_average)
+    VALUES ('lea123','Luke', 'Anderson', 'E','11-OCT-2003', '1', 'lea123@utexas.edu', '678-999-8212','B', 'N', '3.55');
+
+Commit;
+
+--2 students: one local and one address each
+-- student 1
+INSERT INTO addresses(address_line_1, address_line_2, city, state, zip_code)
+    VALUES('876 Forestlane Street', 'Apartment 1107','Plano', 'TX', '75025');
+
+INSERT INTO addresses(address_line_1, address_line_2, city, state, zip_code)
+    VALUES('2020 Nueces St', 'Apartment 1507','Austin', 'TX', '78705');
+
+Commit;
+
+-- student 2
+INSERT INTO addresses(address_line_1, address_line_2, city, state, zip_code)
+    VALUES('690 Bravewood Drive', 'Apartment 608','Austin', 'TX', '78705');
+
+INSERT INTO addresses(address_line_1, address_line_2, city, state, zip_code)
+    VALUES('201 East, 21st Street', 'Dorm 903','Austin', 'TX', '78705');
+
+Commit;
+
+--Link students to their address
+-- student 1
+INSERT INTO student_address_linkage(address_id, uteid, address_type)
+    VALUES(1, 'grj424', 'H');
+INSERT INTO student_address_linkage(address_id, uteid, address_type)
+    VALUES(2, 'grj424', 'O');
+-- student 2
+INSERT INTO student_address_linkage(address_id, uteid, address_type)
+    VALUES(3, 'lea123', 'H');
+INSERT INTO student_address_linkage(address_id, uteid, address_type)
+    VALUES(4, 'lea123', 'L');
+
+Commit;
+
+
+--3 majors
+INSERT INTO majors(major_id, major_code,major_description)
+    VALUES(1,'MIS', 'Management Information Systems');
+INSERT INTO majors(major_id, major_code,major_description)
+    VALUES(2,'ACC', 'Acounting');
+INSERT INTO majors(major_id, major_code,major_description)
+    VALUES(3,'FIN', 'Finance');
+
+Commit;
+
+-- Assign Students Majors
+-- Assign one student a single major 
+INSERT INTO student_majors_linkage(major_id, uteid, date_declared)
+    VALUES(1, 'grj424', '11-NOV-2021');
+
+-- Assign the other student two majors
+INSERT INTO student_majors_linkage(major_id, uteid, date_declared)
+    VALUES(2, 'lea123', '12-MAY-2021');
+INSERT INTO student_majors_linkage(major_id, uteid, date_declared)
+    VALUES(3, 'lea123', '09-SEP-2021');
+
+Commit;
+
+--2 courses
+INSERT INTO courses(course_id,course_code, course_name, course_description)
+    VALUES(1,'MIS301', 'Intro to Management Information Systems', 'Restricted to students in the McCombs School of Business. 
+    Investigates use of databases, basic data mining tools, social networking software, 
+    and advanced level of spreadsheet management for analysis of large amounts of data. Offered on the letter-grade basis only.');
+INSERT INTO courses(course_id,course_code, course_name, course_description)
+    VALUES(2,'ACC311', 'Fundamentals of Financial Accounting', 'Restricted to students in the McCombs School of Business. 
+    Concepts and their application in transaction analysis and financial statement preparation; analysis of financial statements Offered on the letter-grade basis only.');
+
+Commit;
+
+-- Create 2 Teachers
+INSERT INTO teachers(teacher_id, firstName, lastName, teacher_email, primary_department_code, primary_teaching_title,phone_number,office_location,office_address_1,
+                     office_address_2,office_city,office_state,office_zip_code,campus_mail_code)
+    VALUES('bbb11', 'Brad','Danger','bbb11@utexas.edu', 'IROM', 'Distingushed Lecturer', 
+           '888-999-1234','CBA 4.418', '123 Bevo Way','Suite 201', 'Austin','TX', '78705', 'B1234');
+
+INSERT INTO teachers(teacher_id, firstName, lastName, teacher_email, primary_department_code, primary_teaching_title,phone_number,office_location,office_address_1,
+                     office_address_2,office_city,office_state,office_zip_code,campus_mail_code)
+    VALUES('jjk765', 'Justin','Krop','jjk765@utexas.edu', 'ACC', 'Lecturer', 
+           '889-998-4321','CBA 4.420', '456 Bevo Way','Suite 209', 'Austin','TX', '78705', 'B1234');
+
+COMMIT;
+
+--Create needed Rooms
+INSERT INTO rooms (room_id, room_number, seat_capacity, building_code, floor)
+    VALUES(1, 'UTC 1.120','100','UTC','1');
+INSERT INTO rooms (room_id, room_number, seat_capacity, building_code, floor)
+    VALUES(2, 'UTC 3.124','150','UTC','3');
+    
+COMMIT;
+
+--3 sections of each course
+--MIS301 Sections
+INSERT INTO sections(section_id, teacher_id, course_id, room_id, unique_number, semester_code, section_days, starting_hours, length_minutes, section_mode, seat_limit, section_status)
+    VALUES(1,'bbb11',1,1, '12345', 'FA22','MW','930','75', 'P', '100', 'O');
+INSERT INTO sections(section_id, teacher_id, course_id, room_id, unique_number, semester_code, section_days, starting_hours, length_minutes, section_mode, seat_limit, section_status)
+    VALUES(2,'bbb11',1,2, '98765', 'FA22','TTH','230','75', 'P', '150', 'O');
+INSERT INTO sections(section_id, teacher_id, course_id, room_id, unique_number, semester_code, section_days, starting_hours, length_minutes, section_mode, seat_limit, section_status)
+    VALUES(3,'jjk765',1,2, '56478', 'FA22','MWF','130','90', 'P', '150', 'O');
+
+--ACC311 Sections
+INSERT INTO sections(section_id, teacher_id, course_id, room_id, unique_number, semester_code, section_days, starting_hours, length_minutes, section_mode, seat_limit, section_status)
+    VALUES(4,'jjk765',2,1, '09812', 'FA22','TTH','230','75', 'P', '100', 'O');
+INSERT INTO sections(section_id, teacher_id, course_id, room_id, unique_number, semester_code, section_days, starting_hours, length_minutes, section_mode, seat_limit, section_status)
+    VALUES(5,'jjk765',2,2, '85567', 'FA22','MW','930','75', 'P', '150', 'O');
+INSERT INTO sections(section_id, teacher_id, course_id, room_id, unique_number, semester_code, section_days, starting_hours, length_minutes, section_mode, seat_limit, section_status)
+    VALUES(6,'bbb11',2,1, '23349', 'FA22','TTH','800','75', 'P', '100', 'O');
+    
+Commit;
+
+
+--Enroll students into different sections of two courses
+INSERT INTO enrollment(uteid, section_id, grade_code)
+    VALUES('grj424',1,'A');
+INSERT INTO enrollment(uteid, section_id, grade_code)
+    VALUES('lea123',4,'B-');
+
+COMMIT;
+
+-- Section 4: Create Indexes
+
+-- Indexes for FK columns that do not share a primary key
+create index course_id_index
+    on sections (course_id); --index on table where it is a foreign key
+create index teacher_id_index
+    on sections (teacher_id);
+create index room_id_index
+    on sections (room_id);
+
+-- 2 other indexes
+create index student_last_name_index --student last name will be helpful to search quickly
+    on students (firstName);
+create index teacher_last_name_index --teacher last name will be helpful to search quickly
+    on teachers (lastName);
+

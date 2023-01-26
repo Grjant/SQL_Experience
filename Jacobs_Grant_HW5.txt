@@ -1,0 +1,110 @@
+-- Grant Jacobs
+-- grj424
+-- HW 5
+
+-- 1
+SELECT
+    SYSDATE,
+    TRIM(TO_CHAR (SYSDATE,'DAY')) || ', ' || TRIM(TO_CHAR (SYSDATE,'MONTH'))AS "DAY_MONTH",
+    TO_CHAR (SYSDATE, 'MM/DD/YY') || ' - hour:' || TO_CHAR(SYSDATE, 'HH24') AS "DATE_WITH_HOURS",
+    (365 - TO_CHAR (SYSDATE, 'DDD')) AS "DAYS_TIL_END_OF_YEAR",
+    TO_CHAR (SYSDATE, 'mon dy yy') AS "LOWERCASE",
+    TO_CHAR('115000','$999,999') AS my_ideal_starting_salary
+FROM dual;
+
+--2
+SELECT
+    s.UTEID,
+    nvl2(
+        msl.major_id, 
+        s.first_name ||' ' || s.last_name ||' ' || 'has delcared a major',
+        s.first_name ||' ' || s.last_name ||' ' || 'has not delcared a major') 
+    as "Student Information",
+    'Date Declared:' || ' ' || TO_CHAR(msl.date_declared,'Mon-DD-YYYY') as "Date Declared"
+FROM 
+    major_student_linking msl 
+    RIGHT JOIN student s ON msl.UTEID = s.UTEID
+ORDER BY s.UTEID;
+
+--3
+SELECT INITCAP(SUBSTR(first_name, 0,1) || '. ' || last_name) AS teacher_name,
+unique_number, seat_limit
+FROM section sec INNER JOIN teacher t ON sec.instructor_uteid = t.UTEID
+WHERE section_mode = 'F' and seat_limit > 40
+ORDER BY teacher_name;
+
+--4
+SELECT uteid, first_name || ' ' || last_name as Name, international_flag,
+    CASE
+        WHEN international_flag = 'Y' THEN TO_CHAR(46498, '$99,999')
+        ELSE TO_CHAR(13570, '$99,999') || ' to'|| TO_CHAR(46498, '$99,999') 
+    END AS "Tuition"
+FROM student
+ORDER BY international_flag DESC, UTEID ASC;
+
+--5
+SELECT s.uteid as UT_ID, major_id, 
+                LENGTH(first_name) as first_name_length,
+                ROUND((SYSDATE - (TO_DATE(date_declared))),0) as days_since_major_declared 
+FROM
+    major_student_linking msl 
+    INNER JOIN student s ON msl.UTEID = s.UTEID
+WHERE CLASSIFICATION in ('3','4') and ROUND((SYSDATE - (TO_DATE(date_declared))),0) > 50
+ORDER BY days_since_major_declared;
+
+--6
+SELECT uteid, last_name, email,
+         SUBSTR(email, 1, INSTR(email, '@')- 1) AS emailname,
+         SUBSTR(email, INSTR(email, '@') + 1) AS emaildomain
+FROM student
+ORDER BY emaildomain;
+
+--7
+SELECT first_name || ' ' || last_name as Student_Name, 
+        major_code, 
+        date_declared,
+        SUBSTR(phone,1,3) ||'-***-****' as redacted_phone_number
+FROM student s 
+    INNER JOIN major_student_linking msl ON s.UTEID = msl.UTEID
+    INNER JOIN major m ON msl.major_id = m.major_id
+WHERE date_declared > '01-Jan-22'
+ORDER BY major_code, date_declared;
+
+--8
+SELECT
+    CASE
+        WHEN CGPA >= 3.9 THEN '1st Class Honor'
+        WHEN CGPA >= 3.7 and CGPA < 3.9 THEN  '2nd Class Honor'
+        WHEN CGPA >= 3.5 and CGPA < 3.7 THEN '3rd Class Honor'
+        WHEN CGPA < 3.5 and CGPA > 2.0 THEN 'On track to graduate'
+    END as honor_level,
+first_name, last_name, email
+FROM student
+order by 1, 3;
+
+--9
+SELECT first_name,last_name, classification, email, CGPA,
+        DENSE_RANK() OVER(ORDER BY CGPA DESC) as Student_Rank
+FROM student;
+--WHERE rownum <= 5
+
+--10 Grant Jacobs grj424
+--Part A
+SELECT *
+    FROM
+    ( 
+        SELECT first_name,last_name, classification, email, CGPA,
+                DENSE_RANK() OVER(ORDER BY CGPA DESC) as Student_Rank
+        FROM student
+    )
+WHERE rownum <= 5;
+
+--Part B
+SELECT *
+    FROM
+    ( 
+        SELECT first_name,last_name, classification, email, CGPA,
+                DENSE_RANK() OVER(ORDER BY CGPA DESC) as Student_Rank
+        FROM student
+    )
+WHERE Student_Rank <= 3;

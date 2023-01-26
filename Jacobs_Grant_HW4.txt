@@ -1,0 +1,126 @@
+-- Grant Jacobs
+
+-- MIS325 HW #4
+
+--1
+SELECT 
+    count(UTEID) as count_of_student, 
+    min(CGPA) as min_student_CGPA, 
+    max(CGPA) as max_student_CGPA
+from student;
+
+--2
+SELECT t.last_name, c.course_code, count(s.section_id) AS number_of_classes
+FROM
+    teacher t INNER JOIN section s ON t.UTEID = s.instructor_uteid
+              INNER JOIN course c on s.course_id = c.course_id
+WHERE SUBSTR(c.course_code,1,3) IN ('MIS', 'ACC') AND s.semester_code = 'FA22'
+GROUP BY t.last_name, c.course_code
+ORDER BY t.last_name, c.course_code;
+
+--3
+SELECT m.major_code, s.classification, round(avg(s.CGPA),2) as average_CGPA
+FROM student s 
+    INNER JOIN major_student_linking msl ON s.UTEID = msl.UTEID
+    INNER JOIN major m ON m.major_id = msl.major_id
+GROUP BY m.major_code, s.classification
+ORDER BY average_CGPA DESC;
+
+--4
+SELECT s.primary_college_code, s.first_name ||' '|| s.last_name as Name, count(sec.course_id) as Number_of_Course
+FROM student s
+    INNER JOIN enrollment e ON s.UTEID = e.UTEID
+    INNER JOIN section sec ON sec.section_id = e.section_id
+WHERE 
+    sec.semester_code = 'FA22' AND
+    sec.section_day = 'MW'
+GROUP BY s.primary_college_code, s.first_name ||' '|| s.last_name
+ORDER BY s.primary_college_code, s.first_name ||' '|| s.last_name;
+
+--5
+SELECT s.primary_college_code, s.first_name ||' '|| s.last_name as Name, count(sec.course_id) as Number_of_Course
+FROM student s
+    INNER JOIN enrollment e ON s.UTEID = e.UTEID
+    INNER JOIN section sec ON sec.section_id = e.section_id
+WHERE 
+    sec.semester_code = 'FA22' AND
+    sec.section_day = 'MW'
+GROUP BY s.primary_college_code, s.first_name ||' '|| s.last_name
+HAVING count(sec.course_id) >= 2
+ORDER BY s.primary_college_code, s.first_name ||' '|| s.last_name;
+
+--6A
+SELECT count(student.UTEID) as Number_of_students, address.city, address.zip_postal_code
+FROM student
+    INNER JOIN student_address_linking ON student.UTEID = student_address_linking.UTEID
+    INNER JOIN address ON student_address_linking.address_id = address.address_id
+WHERE address.city NOT IN ('New Delhi', 'Beijing')
+GROUP BY ROLLUP(address.city, address.zip_postal_code);
+
+/* 
+6B: Explain in a commented sentence how the CUBE operator is different from ROLLUP and why it is useful
+
+Unlike ROLLUP, the CUBE operator creates a set that shows aggregates for all combinations of values in the selected columns.
+A ROLLUP simply creates a set that shows aggregates for a hierarchy of values in the selected columns. 
+There is no difference between the twowhen you are only grouping by one column 
+*/
+
+--7
+SELECT m.major_code, count(s.UTEID) as number_students
+FROM student s 
+    INNER JOIN major_student_linking msl ON s.UTEID = msl.UTEID
+    INNER JOIN major m ON m.major_id = msl.major_id
+WHERE s.international_flag = 'N'
+GROUP BY(m.major_code)
+HAVING count(s.UTEID) > 1
+ORDER BY number_students DESC;
+
+--8
+SELECT DISTINCT UTEID
+FROM student
+WHERE UTEID NOT IN
+    (SELECT DISTINCT uteid
+    FROM major_student_linking);
+
+--9
+SELECT first_name, last_name, email, ROUND((SYSDATE - date_of_birth)/365.25,0) as age, CGPA
+FROM student
+WHERE CGPA >
+    (SELECT avg(CGPA)
+    FROM STUDENT)
+ORDER BY age ASC, CGPA DESC;
+
+--10
+SELECT      s.UTEID,
+            v.number_of_sections, 
+            v.total_minutes, 
+            round(v.total_minutes / v.number_of_sections,1) as avg_minutes_per_section
+    FROM student s INNER JOIN
+       (
+       SELECT e.UTEID, count(*) as number_of_sections, sum(length_minutes) as total_minutes
+       FROM enrollment e
+       JOIN section sec ON e.section_id = sec.section_id
+       GROUP BY UTEID) v
+    ON s.uteid = v.uteid
+    ORDER BY avg_minutes_per_section DESC;
+
+
+--11
+SELECT UTEID, first_name, last_name, primary_dept, office_phone
+FROM teacher
+WHERE UTEID IN
+    (SELECT DISTINCT UTEID
+    FROM section
+    WHERE section_day IN ('MW', 'M', 'W', 'MWF')) OR
+    primary_dept = 'COE'
+ORDER BY primary_dept, last_name ASC;
+
+--12
+SELECT first_name, last_name, email, classification, CGPA, total_section
+FROM student s JOIN
+        (SELECT UTEID, COUNT(section_id) as total_section
+        FROM enrollment
+        GROUP BY UTEID) v
+    ON s.UTEID = v.UTEID
+WHERE classification = 4 and CGPA < 2.5
+ORDER BY CGPA ASC, total_section DESC;

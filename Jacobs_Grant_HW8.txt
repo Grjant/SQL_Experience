@@ -1,0 +1,130 @@
+-- Grant Jacobs
+-- MIS325 HW8
+
+drop table student_dw;
+drop view UT_student_view;
+drop view SFA_student_view;
+drop procedure student_etl_proc;
+
+--1.
+/*
+Fields the UT tables and the SFA table have have in common are:
+    - They both have an primary key identifer (UTEID, JACKEID)
+    - They both track the students first and last name
+    - They also both track info about the students such as classification, birthdate, email, phone, address, city, state, zip, and GPA
+The difference is that the UT tables are split into 3 tables to take advantage of the data relationships while the SFA only has a single table
+*/
+
+--2
+
+CREATE TABLE student_dw
+( 
+    data_source     VARCHAR2(3)     NOT NULL,
+    student_eid     VARCHAR2(10)    NOT NULL,
+    first_name      VARCHAR2(50)    NOT NULL,
+    last_name       VARCHAR2(50)    NOT NULL,
+    classification  CHAR(1)         NOT NULL,
+    birthdate       DATE            NOT NULL,
+    email           VARCHAR2(50)    NOT NULL,
+    phone           CHAR(12)        NOT NULL,
+    address         VARCHAR2(50)    NOT NULL,
+    city            VARCHAR2(50)    NOT NULL,
+    state           VARCHAR2(50)    NOT NULL,
+    zip             VARCHAR2(10)    NOT NULL,
+    GPA             NUMBER(3,2)     NOT NULL,
+    constraint student_dw_pks  primary key (student_eid, data_source)
+);
+
+--3
+-- SFA_Student_View
+
+CREATE OR REPLACE VIEW SFA_Student_View AS
+SELECT 'SFA' AS data_source,
+    jackeid as student_eid, 
+    student_first_name as first_name,
+    student_last_name as last_name,
+    classification,
+    DOB as birthdate,
+    email,
+    phone_number as phone, --already formatted
+    addressline1 as address,
+    city,
+    statecode as state,
+    zip_code as zip,
+    GPA
+FROM new_lj_students;
+
+--UT student view
+CREATE OR REPLACE VIEW UT_Student_View AS
+SELECT 'UTA' AS data_source,
+    s.uteid as student_eid, 
+    s.first_name,
+    s.last_name,
+    s.classification,
+    s.date_of_birth as birthdate,
+    s.email,
+    s.phone,  --already formatted
+    a.address_line_1 as address,
+    a.city,
+    a.state_region as state,
+    a.zip_postal_code as zip,
+    CGPA as GPA
+FROM student s 
+    inner join student_address_linking sal on s.UTEID = sal.UTEID
+    inner join address a on sal.address_id = a.address_id
+WHERE sal.address_type_code = 'H' and s.classification IN ('1','2','3','4');
+
+--6
+CREATE OR REPLACE PROCEDURE student_etl_proc AS
+BEGIN
+-- insert UT records
+insert into student_dw
+select ut.data_source, ut.student_eid, ut.first_name, ut.last_name, ut.classification, ut.birthdate,
+       ut.email, ut.phone, ut.address, ut.city, ut.state, ut.zip, ut.gpa
+from UT_student_view ut left join student_dw dw 
+on ut.student_eid = dw.student_eid and ut.data_source = dw.data_source
+where dw.student_eid is null;
+
+--insert SFA records
+insert into student_dw
+select sfa.data_source, sfa.student_eid, sfa.first_name, sfa.last_name, sfa.classification, sfa.birthdate,
+       sfa.email, sfa.phone, sfa.address, sfa.city, sfa.state, sfa.zip, sfa.gpa
+from sfa_student_view sfa left join student_dw dw 
+on sfa.student_eid = dw.student_eid and sfa.data_source = dw.data_source
+where dw.student_eid is null;
+
+--merge for UT
+MERGE INTO student_dw dw
+USING UT_student_view usw
+ON (dw.student_eid = usw.student_eid and dw.data_source = 'UTA')
+WHEN MATCHED THEN
+UPDATE SET dw.first_name = usw.first_name,
+           dw.last_name = usw.last_name,
+           dw.classification = usw.classification,
+           dw.birthdate = usw.birthdate,
+           dw.email = usw.email,
+           dw.phone = usw.phone,
+           dw.address = usw.address,
+           dw.city = usw.city,
+           dw.state = usw.state,
+           dw.zip = usw.zip,
+           dw.gpa = usw.gpa;
+
+--merge for SFA
+MERGE INTO student_dw dw
+USING sfa_student_view ssw
+ON (dw.student_eid = ssw.student_eid and dw.data_source = 'SFA')
+WHEN MATCHED THEN
+UPDATE SET dw.first_name = ssw.first_name,
+           dw.last_name = ssw.last_name,
+           dw.classification = ssw.classification,
+           dw.birthdate = ssw.birthdate,
+           dw.email = ssw.email,
+           dw.phone = ssw.phone,
+           dw.address = ssw.address,
+           dw.city = ssw.city,
+           dw.state = ssw.state,
+           dw.zip = ssw.zip,
+           dw.gpa = ssw.gpa;
+END;
+/

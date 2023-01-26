@@ -1,0 +1,164 @@
+-- Grant Jacobs
+-- HW 6
+
+-- turn on server output
+SET SERVEROUTPUT ON;
+
+set define on;
+
+--1
+--1a 
+DECLARE
+    count_classes NUMBER;
+BEGIN
+    SELECT count(*)
+    INTO count_classes
+    FROM enrollment
+    WHERE UTEID = 'ARS2860';
+
+    IF count_classes > 1 THEN
+        DBMS_OUTPUT.PUT_LINE('The student has taken more than 1 class.');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('The student has taken only 1 class.');
+    END IF;
+END;
+/
+--1b
+DELETE FROM enrollment
+WHERE section_id = '1045' AND UTEID = 'ARS2860';
+
+--1c
+ROLLBACK;
+
+--2
+set define on;
+ -- use CLG3296
+DECLARE
+    count_classes NUMBER;
+    UTEID_input VARCHAR2(10 BYTE);
+BEGIN
+    --UTEID_input := &UTEID_input;
+
+    SELECT UTEID, count (*)
+    INTO UTEID_input, count_classes
+    FROM enrollment
+    WHERE UTEID = '&UTEID_input'
+    GROUP BY UTEID;
+
+    IF count_classes > 1 THEN
+        DBMS_OUTPUT.PUT_LINE('The student with UTEID: ' || UTEID_input || ', has taken more than 1 class.');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('The student with UTEID: ' || UTEID_input || ', has only taken 1 class.');
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('UTEID not found. Please try again.');
+END;
+/
+
+--3
+BEGIN
+    INSERT INTO course (course_id, course_code, course_name, course_description)
+    VALUES(course_id_seq.NEXTVAL, 'ACC311', 'FUNDAMENTALS OF FINANCIAL ACC', 
+                                    'Restricted to students in the McCombs School of Business.
+                                    Concepts and their application in transaction analysis and financial statement preparation; analysis of financial statements.
+                                    Accounting 311 and 311H may not both be counted.
+                                    Prerequisite: Twenty-four semester hours of college credit, including Economics 304K.
+                                    May be counted toward the Quantitative Reasoning flag requirement.
+                                    Offered on the letter-grade basis only.');
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE ('1 row was inserted into the course table.');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE ('Row was not inserted. Unexpected exception occurred.');        
+END;
+/
+
+--4
+DECLARE
+    TYPE major_table IS TABLE OF VARCHAR2 (3);
+    major_list   major_table;
+BEGIN
+    SELECT distinct major_code
+    BULK COLLECT INTO major_list
+    FROM major
+    WHERE major_code like 'M%'
+    ORDER BY major_code;
+    
+    for i in 1..major_list.COUNT LOOP
+        DBMS_OUTPUT.PUT_LINE ('Student Major ' || i || ': ' || major_list(i)); 
+    END LOOP;
+END;
+/
+
+--5
+DECLARE
+    CURSOR major_cursor IS
+        SELECT first_name, last_name, m.major_description
+        FROM major m INNER JOIN major_student_linking msl ON m.major_id = msl.major_id
+                     INNER JOIN student s ON msl.UTEID = s.UTEID
+        WHERE m.major_code = '&major_code_input'
+        ORDER BY major_description, last_name, first_name;
+    cursor_row major_cursor%ROWTYPE;  --declare a variable for each row
+BEGIN
+    FOR cursor_row IN major_cursor LOOP
+            DBMS_OUTPUT.PUT_LINE ('Student' || ', '|| cursor_row.first_name || ' ' || cursor_row.last_name ||
+                              ', has chosen ' || cursor_row.major_description || ' as the major.');
+    END LOOP;
+END;
+/
+
+--6
+CREATE OR REPLACE PROCEDURE insert_course
+    (
+    course_code_param           VARCHAR2,
+    course_name_param           VARCHAR2,
+    course_description_param    VARCHAR2
+    )
+AS
+BEGIN
+    INSERT INTO course (course_id, course_code, course_name, course_description)
+    VALUES(course_id_seq.NEXTVAL, course_code_param, course_name_param, course_description_param);
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('1 row was inserted into the course table.');
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+END;
+/
+--testing
+CALL insert_course ('MIS888', 'Advanced Database Management', 'A course on advanced DB topics.');
+BEGIN
+insert_course ('MIS999', 'Intermediate Python', 'A course on inheritance and polymorphism.'); 
+END;
+/
+
+--7
+CREATE OR REPLACE FUNCTION class_count 
+    (
+    uteid_param VARCHAR
+    )
+RETURN VARCHAR 
+AS
+    course_count NUMBER;
+BEGIN
+    SELECT count(*)
+    INTO course_count
+    FROM enrollment
+    WHERE UTEID = uteid_param;
+
+    RETURN course_count;
+END;
+/   
+    
+-- testing
+select UTEID, class_count(UTEID)  
+from enrollment
+group by UTEID
+order by UTEID;
+
+select UTEID, Class_count(UTEID)  
+from enrollment
+where Class_count(UTEID) > 1
+group by UTEID
+order by Class_count(UTEID) desc, UTEID;
